@@ -1,13 +1,8 @@
 package flashcards;
 
 import java.io.*;
-import java.text.SimpleDateFormat;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.format.FormatStyle;
-import java.time.temporal.ChronoField;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -19,7 +14,7 @@ public class Main {
     static String exportFile = "";
 
     public static void main(String[] args) {
-        runCommandLineArgs(args);
+        importOrExportFromFileCommandLineArgs(args);
         startFlashcardsApp();
     }
 
@@ -38,10 +33,10 @@ public class Main {
 
             switch (enumAction) {
                 case ADD:
-                    createFlashCards(flashcards);
+                    createFlashCards();
                     break;
                 case REMOVE:
-                    removeCard(flashcards);
+                    removeCard();
                     break;
                 case IMPORT:
                     interactiveImport();
@@ -50,7 +45,7 @@ public class Main {
                     interactiveExport();
                     break;
                 case ASK:
-                    testKnowledge(flashcards);
+                    testKnowledge();
                     break;
                 case EXIT:
                     logger.println("Bye bye!");
@@ -63,17 +58,17 @@ public class Main {
                     saveLogsToFile(logger.getLogs());
                     break;
                 case HARDEST_CARD:
-                    printHardestCards(flashcards);
+                    printHardestCards();
                     break;
                 case RESET_STATS:
-                    resetStats(flashcards);
+                    resetStats();
                     break;
             }
 
         }
     }
 
-    private static void runCommandLineArgs(String[] args) {
+    private static void importOrExportFromFileCommandLineArgs(String[] args) {
         for (int i = 1; i < args.length; i += 2) {
             switch (args[i - 1]) {
                 case "-import":
@@ -90,7 +85,7 @@ public class Main {
     private static int getInputAsNumber(String message) {
         int numberInput;
         while (true) {
-            System.out.println(message);
+            logger.println(message);
             try {
                 numberInput = Integer.parseInt(logger.nextLine());
                 break;
@@ -101,32 +96,32 @@ public class Main {
         return numberInput;
     }
 
-    private static Set<Flashcard> createFlashCards(Set<Flashcard> flashcards) {
+    private static Set<Flashcard> createFlashCards() {
         //int numberOfCards = getInputAsNumber("Input the number of cards:");
         int numberOfCards = 1;
         for (int i = 0; i < numberOfCards; i++) {
             try {
-                Flashcard card = createUniqueFlashcard(i + 1, flashcards);
+                Flashcard card = createUniqueFlashcard(i + 1);
                 flashcards.add(card);
-            } catch (InputMismatchException e) {
+            } catch (RuntimeException e) {
+                // todo some functionality
             }
-
         }
         return flashcards;
     }
 
-    public static Flashcard createUniqueFlashcard(int cardNumber, Set<Flashcard> flashcards) {
+    public static Flashcard createUniqueFlashcard(int cardNumber) {
 
         String term;
         String definition;
         int countOfMistakes = 0;
         Map<String, String> flashcardMap = transformToFlashcardsMap(flashcards);
 
-        System.out.println("The card:");
+        logger.println("The card:");
         term = logger.nextLine();
         if (flashcardMap.containsKey(noSpaceAndLowerCase(term))) {
             logger.printf("The card \"%s\" already exists.\n", term);
-            throw new InputMismatchException();
+            throw new RuntimeException();
         }
         //System.out.printf("Card #%d:\n", cardNumber);
 /*        while (true) {
@@ -138,11 +133,11 @@ public class Main {
             break;
         }*/
 
-        System.out.println("The definition of the card:");
+        logger.println("The definition of the card:");
         definition = logger.nextLine();
         if (flashcardMap.containsValue(noSpaceAndLowerCase(definition))) {
             logger.printf("The definition \"%s\" already exists.\n", definition);
-            throw new InputMismatchException();
+            throw new RuntimeException();
         }
         //System.out.printf("The definition of the card #%d: \n", cardNumber);
 /*        while (true) {
@@ -158,10 +153,10 @@ public class Main {
         return new Flashcard(term, definition, countOfMistakes);
     }
 
-    private static void removeCard(Set<Flashcard> flashcards) {
-        System.out.println("Which card?");
-        String input = logger.nextLine();
-        String termToRemoveLowercase = noSpaceAndLowerCase(input);
+    private static void removeCard() {
+        logger.println("Which card?");
+        String termToRemove = logger.nextLine();
+        String termToRemoveLowercase = noSpaceAndLowerCase(termToRemove);
 
         for (Flashcard flashcard : flashcards) {
             String currentFlashcard = noSpaceAndLowerCase(flashcard.getTerm());
@@ -171,7 +166,7 @@ public class Main {
                 return;
             }
         }
-        logger.printf("Can't remove \"%s\": there is no such card.\n", input);
+        logger.printf("Can't remove \"%s\": there is no such card.\n", termToRemove);
     }
 
     private static void interactiveImport() {
@@ -183,9 +178,9 @@ public class Main {
     private static void importCardsFromFile(String filename) {
         Set<Flashcard> flashcardsFormFile = readFlashcardsFromFile(filename);
 
-        int importedCardsNumber = flashcardsFormFile != null ? flashcardsFormFile.size() : 0;
+        int importedCardsNumber = flashcardsFormFile.size();
         if (importedCardsNumber == 0) {
-            logger.printf("%d cards have been loaded.\n", importedCardsNumber);
+            logger.println("No cards has been loaded.");
             return;
         }
 
@@ -252,11 +247,13 @@ public class Main {
     }
 
     private static String noSpaceAndLowerCase(String text) {
-        return text.toLowerCase().replaceAll("\\s+", "");
+        return text
+                .toLowerCase()
+                .replaceAll("\\s+", "");
     }
 
 
-    private static void testKnowledge(Set<Flashcard> flashcards) {
+    private static void testKnowledge() {
 
         int cardsToGuessNumber = getInputAsNumber("How many times to ask?");
 
@@ -304,11 +301,10 @@ public class Main {
         return trimLowerAnswer.equals(trimLowerDef);
     }
 
-    private static void printHardestCards(Set<Flashcard> flashcards) {
+    private static void printHardestCards() {
         String message = "There are no cards with errors.";
 
-        Iterator<Flashcard> iterator = flashcards.iterator();
-        if (!iterator.hasNext()) {
+        if (flashcards.size() == 0) {
             logger.println(message);
             return;
         }
@@ -348,7 +344,7 @@ public class Main {
         logger.println(sb.toString());
     }
 
-    private static void resetStats(Set<Flashcard> flashcards) {
+    private static void resetStats() {
         flashcards.forEach(i -> i.setCountOfMistakes(0));
         logger.println("Card statistics have been reset.");
     }
